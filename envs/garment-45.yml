@@ -1,0 +1,10 @@
+name: garment-45
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - cmake
+  - git
+  # rest is installed via pip in scripts/setup_garment_45.sh because
+  # Isaac Sim and DexGarmentLab requirements need ordered installs.

@@ -1,0 +1,6 @@
+[submodule "vendor/DexGarmentLab"]
+	path = vendor/DexGarmentLab
+	url = https://github.com/wayrise/DexGarmentLab.git
+[submodule "vendor/IsaacLab"]
+	path = vendor/IsaacLab
+	url = https://github.com/isaac-sim/IsaacLab.git

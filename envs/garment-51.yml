@@ -1,0 +1,9 @@
+name: garment-51
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - cmake
+  - git
+  # rest installed via pip in scripts/setup_garment_51.sh

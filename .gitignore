@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# Envs / venvs
+.venv/
+venv/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Data, assets, runs (large; not for git)
+data/
+runs/
+outputs/
+logs/
+wandb/
+checkpoints/
+*.usd
+*.usda
+*.usdz
+*.zip
+*.tar.gz
+
+# Vendor build artifacts
+vendor/**/build/
+vendor/**/_build/
+vendor/**/logs/
+vendor/**/outputs/
+vendor/**/.vscode/
+vendor/IsaacLab/_isaac_sim
