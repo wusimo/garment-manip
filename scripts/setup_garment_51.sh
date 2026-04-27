@@ -30,7 +30,13 @@ pip install "isaacsim[all,extscache]==5.1.0" \
   --extra-index-url https://pypi.nvidia.com
 
 echo "[setup] installing Isaac Lab from source (./isaaclab.sh -i)"
+# egl_probe (a robomimic dep) ships with cmake_minimum_required < 3.5, which
+# CMake 4.x refuses. Allow the legacy minimum across all builds in this run.
+export CMAKE_POLICY_VERSION_MINIMUM=3.5
+export CMAKE_ARGS="${CMAKE_ARGS:-} -DCMAKE_POLICY_VERSION_MINIMUM=3.5"
 cd "$REPO_ROOT/vendor/IsaacLab"
-./isaaclab.sh -i
+# Pipe "Yes" so the post-install Omniverse EULA prompt doesn't block when the
+# script is run non-interactively (background shell, CI, etc.).
+yes Yes | ./isaaclab.sh -i
 
 echo "[setup] done. activate with:  conda activate $ENV_NAME"
