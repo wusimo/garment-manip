@@ -97,30 +97,38 @@ Order of importance (each addresses one gap above):
 
 ## Choosing a checkpoint
 
-The first-attempt design assumes a RoboTwin-trained Qwen-PI checkpoint. To
-find one, browse https://huggingface.co/StarVLA and filter for repos with
-`robotwin` in the name. The README at `vendor/starVLA/examples/Robotwin/`
-(or `/home/simo/Documents/starVLA/examples/Robotwin/README.md`) lists the
-exact ckpt path used in their published RoboTwin 2.0 numbers. Set the path
-via the first positional arg to `scripts/run_starvla_server.sh`.
+**Practical choice: `StarVLA/Qwen3-VL-OFT-Robotwin2`** (HuggingFace, public).
+This is the OFT variant — parallel-decoded continuous actions, **not**
+flow-matching. starVLA does ship a Qwen-PI/RoboTwin checkpoint, but it lives
+on the starVLA team's internal storage (see `deploy_policy.yml`'s
+`/mnt/data/gaoning/...` path), not on HuggingFace.
 
-If no suitable Qwen-PI/RoboTwin ckpt is available, fall back to:
-  - **Qwen-OFT RoboTwin** — different action representation (parallel decoding
-    rather than flow-matching), but same 14-D output, same websocket
-    interface. The `StarVLAPolicy` code does not depend on which variant the
-    server hosts.
-  - **A LIBERO ckpt** — single-arm 7-DoF; would require rewriting the bridge
-    to apply only the left arm and leave the right idle. Skip for now.
+The websocket protocol is identical between OFT and PI variants — same 14-D
+action chunk output, same input dict — so `StarVLAPolicy` works against
+either. We call the integration "starVLA Qwen-PI" loosely, but in practice
+we're running OFT until a public PI ckpt appears or we train one.
+
+The default in `scripts/run_starvla_server.sh` points at this checkpoint; pass
+a positional argument to override (e.g. a local fine-tune).
+
+Other ckpts (don't use yet):
+  - LIBERO 4-in-1 (`Qwen3-VL-OFT-LIBERO-4in1`): single-arm 7-DoF; the bridge
+    would need rewriting to apply only the left arm.
 
 ## Running (when GPU is back)
 
 ```bash
-# Terminal 1 — start the inference server
-bash scripts/run_starvla_server.sh <CKPT_PATH> --port 5694
+# Terminal 1 — start the inference server (default ckpt: StarVLA/Qwen3-VL-OFT-Robotwin2)
+bash scripts/run_starvla_server.sh
 
 # Terminal 2 — run the env. Wait for the server to print "server running ..."
 DISPLAY=:1 bash scripts/run_fling_tops_policy.sh --policy starvla \
   --instruction "fling and flatten the t-shirt"
+```
+
+Override the checkpoint by passing it as $1:
+```bash
+bash scripts/run_starvla_server.sh /path/to/fine-tuned-ckpt --port 5694
 ```
 
 For the HALO baseline (sanity check that the refactor didn't break anything):

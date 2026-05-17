@@ -11,9 +11,14 @@ Research workspace for bimanual garment manipulation. Public repo: https://githu
 ## VLA thread — starVLA integration (2026-05-17, in progress)
 
 Goal: drop a real VLA in at the `Fling_Tops_Env.py:220` seam and observe what
-happens. Chose **starVLA's Qwen-PI variant** (flow-matching, π0-style) on a
-**RoboTwin-2.0 pretrained checkpoint**. starVLA source lives at
-`/home/simo/Documents/starVLA`, env `starVLA` (separate from garment-45).
+happens. Chose **starVLA on the public `StarVLA/Qwen3-VL-OFT-Robotwin2`
+checkpoint**. Note: the user-requested Qwen-PI (flow-matching, π0-style) is a
+real starVLA variant, but its RoboTwin checkpoint is team-internal — only the
+OFT variant is on HuggingFace. The websocket protocol is identical, so the
+same `StarVLAPolicy` works against either; we colloquially call this the
+"VLA thread" even though OFT is the runtime variant.
+starVLA source lives at `/home/simo/Documents/starVLA`, env `starVLA`
+(separate from garment-45).
 
 Architecture: out-of-process, websocket-bridged. Isaac Sim runs in garment-45,
 inference server runs in starVLA env, they talk over `:5694`. Avoids the
@@ -31,10 +36,11 @@ unavoidable torch/Isaac-Sim version conflict.
   `docs/vla_integration.md` "Known gaps" for the predicted failure modes
   ordered by what to investigate first.
 
-Run when GPU is back:
+Run when GPU is back (RTX 3090; default kernel 6.17.0-23 lacks nvidia-590
+modules — boot 6.17.0-22 from GRUB Advanced to load modules):
 ```bash
-# T1
-bash scripts/run_starvla_server.sh <CKPT_PATH> --port 5694
+# T1 — default ckpt is StarVLA/Qwen3-VL-OFT-Robotwin2 (pre-downloaded to HF cache)
+bash scripts/run_starvla_server.sh
 # T2 (wait for "server running ...")
 DISPLAY=:1 bash scripts/run_fling_tops_policy.sh --policy starvla
 # Sanity baseline (no server needed)

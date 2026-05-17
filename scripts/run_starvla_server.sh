@@ -13,14 +13,17 @@
 
 set -euo pipefail
 
-if [[ $# -lt 1 ]]; then
-  echo "usage: $0 <CKPT_PATH> [--port PORT] [--use_bf16]"
-  echo "  CKPT_PATH: local path or HuggingFace repo (e.g. StarVLA/Qwen-PI-RoboTwin)"
-  exit 1
-fi
+# Default to the public RoboTwin-2.0 checkpoint (OFT variant — Qwen-PI ckpt is
+# starVLA team-internal). Override by passing a path as $1, e.g. a local
+# fine-tune or a different HuggingFace repo.
+DEFAULT_CKPT="StarVLA/Qwen3-VL-OFT-Robotwin2"
 
-CKPT_PATH="$1"
-shift
+if [[ $# -ge 1 && "$1" != --* ]]; then
+  CKPT_PATH="$1"
+  shift
+else
+  CKPT_PATH="$DEFAULT_CKPT"
+fi
 
 STARVLA_ROOT="/home/simo/Documents/starVLA"
 ENV_NAME="starVLA"
@@ -31,6 +34,9 @@ conda activate "$ENV_NAME"
 
 cd "$STARVLA_ROOT"
 
+# --use_bf16: matches starVLA's run_policy_server.sh; halves VRAM (24 GB RTX 3090 fits comfortably).
+echo "[run_starvla_server] ckpt=$CKPT_PATH"
 python -u deployment/model_server/server_policy.py \
   --ckpt_path "$CKPT_PATH" \
+  --use_bf16 \
   "$@"
