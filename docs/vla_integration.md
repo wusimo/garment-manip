@@ -1,6 +1,45 @@
 # VLA integration — starVLA + DexGarmentLab
 
-Status as of 2026-05-17: infrastructure written, smoke-test and rollout blocked on local GPU/NVIDIA driver being offline.
+Status as of 2026-05-18: infrastructure written, **smoke test PASSED**, rollout blocked on Isaac Sim 4.5 vs driver 595 incompatibility (see "Driver-595 blocker" below).
+
+## Smoke test result (2026-05-18, 9.3 GB checkpoint, RTX 3090, bf16)
+
+`conda run -n starVLA python scripts/smoke_starvla.py --port 5694` against the running server:
+
+```
+shape    = (1, 16, 14)        # batch=1, chunk_size=16, action_dim=14 ✓
+dtype    = float32
+min/max  = -0.9579 / 0.8267   # NOT clip-saturated — healthy distribution
+mean/std = 0.0156 / 0.4635
+inference time = 677 ms
+```
+
+Three useful findings:
+1. **action_dim = 14** confirms the bridge's assumed schema (6 left arm + 6 right arm + 2 grippers).
+2. **Values are NOT clip-saturated at ±1** — the top predicted failure mode in "Known gaps" is off the table.
+3. **chunk_size = 16** → with `sim_steps_per_action=5`, one chunk covers 80 sim steps; a 200-step episode needs ~13 inferences ≈ 9 s of inference total. Real-time feasible.
+
+## Driver-595 blocker (Isaac Sim 4.5)
+
+Isaac Sim 4.5 segfaults at `SimulationApp.__init__` → `_prepare_ui` → `omni.kit.material.library._on_app_ready` with the precursor warning:
+```
+[Warning] [rtx.scenedb.plugin] SceneDbContext : TLAS limit buffer size 7512601600
+[Warning] [rtx.scenedb.plugin] SceneDbContext : TLAS limit : valid true, within: false
+```
+
+The TLAS (top-level acceleration structure) limit is driver-set. Driver 595.58.03 (the active one) rejects the 7.5 GB request that Isaac Sim 4.5 makes during material preload. **Reproducible with `SimulationApp({"headless": True})` alone** — not VLA-related, not memory-pressure-related.
+
+Last verified-working state (per CLAUDE.md): **kernel 6.17.0-22 + nvidia-590 driver**. We're currently on **kernel 6.17.0-23 + nvidia-595**.
+
+Both `nvidia-driver-590` and `nvidia-driver-595` are installed; dkms has built only the **595** modules for the running kernel (`dkms status: nvidia/595.58.03, 6.17.0-23-generic`). The 590 modules for kernel 6.17.0-22 are still on disk.
+
+### Unblock paths
+
+| Option | Cost | Risk |
+|---|---|---|
+| **Reboot → GRUB Advanced → Linux 6.17.0-22** | 2 min reboot | Lowest — known-good config |
+| Pre-build 590 for current kernel via `sudo dkms install nvidia/590.48.01 -k 6.17.0-23-generic`, purge 595, log out + back in to load 590 | ~15 min, needs sudo + display logout | Medium — driver swap on running system |
+| Wait for `linux-modules-nvidia-590-6.17.0-23-generic` to appear in apt | Days | None, but unpredictable timing |
 
 ## Architecture
 

@@ -10,8 +10,10 @@ self-register via sys.path.append(os.getcwd())). The launcher script
 scripts/run_fling_tops_policy.sh handles this plus PYTHONPATH for src/.
 """
 
+import os as _os
 from isaacsim import SimulationApp
-simulation_app = SimulationApp({"headless": False})
+_HEADLESS = _os.environ.get("HEADLESS", "0") == "1"
+simulation_app = SimulationApp({"headless": _HEADLESS})
 
 import argparse
 import os
