@@ -8,6 +8,39 @@ Research workspace for bimanual garment manipulation. Public repo: https://githu
 - DexGarmentLab assets (~22 GB) downloaded at `vendor/DexGarmentLab/Assets/` — do not re-download.
 - `bash scripts/run_fling_tops.sh` (with `DISPLAY=:1`) runs end-to-end: HALO/GAM picks 2 grasp points → fling executes → judge returns `True` at ~0.94 flatten proportion.
 
+## VLA thread — starVLA integration (2026-05-17, in progress)
+
+Goal: drop a real VLA in at the `Fling_Tops_Env.py:220` seam and observe what
+happens. Chose **starVLA's Qwen-PI variant** (flow-matching, π0-style) on a
+**RoboTwin-2.0 pretrained checkpoint**. starVLA source lives at
+`/home/simo/Documents/starVLA`, env `starVLA` (separate from garment-45).
+
+Architecture: out-of-process, websocket-bridged. Isaac Sim runs in garment-45,
+inference server runs in starVLA env, they talk over `:5694`. Avoids the
+unavoidable torch/Isaac-Sim version conflict.
+
+**Status:**
+- Infrastructure written and committed:
+  - `src/policies/{base,halo_policy,starvla_policy}.py` — Policy interface + adapters
+  - `src/envs/fling_tops_policy_env.py` — forked Fling_Tops driver using Policy
+  - `scripts/run_starvla_server.sh`, `scripts/run_fling_tops_policy.sh`
+  - `docs/vla_integration.md` — architecture + action-space contract + gap analysis
+- Smoke test and first rollout BLOCKED on local NVIDIA driver (currently down).
+- Action-space bridge is intentionally lossy (14-D starVLA action → 60-D
+  bimanual UR10e+LeapHand). Expected to fail informatively on first run. See
+  `docs/vla_integration.md` "Known gaps" for the predicted failure modes
+  ordered by what to investigate first.
+
+Run when GPU is back:
+```bash
+# T1
+bash scripts/run_starvla_server.sh <CKPT_PATH> --port 5694
+# T2 (wait for "server running ...")
+DISPLAY=:1 bash scripts/run_fling_tops_policy.sh --policy starvla
+# Sanity baseline (no server needed)
+DISPLAY=:1 bash scripts/run_fling_tops_policy.sh --policy halo
+```
+
 ## Running a task
 
 ```bash
