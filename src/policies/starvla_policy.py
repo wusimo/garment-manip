@@ -34,15 +34,25 @@ ACTION-SPACE CONTRACT (load-bearing — read before debugging):
 import os
 from typing import Optional
 
+import cv2 as cv
 import numpy as np
 
 from .base import Policy
 
+# Vision-encoder input size used by starVLA's Qwen2.5-VL stack — keep aligned
+# with examples/Robotwin/eval_files/model2robotwin_interface.py:267.
+_VLA_IMAGE_SIZE = (224, 224)
+
 
 class StarVLAPolicy(Policy):
-    """Talks to a starVLA Qwen-PI websocket server. The server is launched
+    """Talks to a starVLA Qwen-VL websocket server. The server is launched
     separately in the `starVLA` conda env via scripts/run_starvla_server.sh —
-    keeping it out-of-process avoids the Isaac Sim ↔ PyTorch env conflict."""
+    keeping it out-of-process avoids the Isaac Sim ↔ PyTorch env conflict.
+
+    Connection is lazy: instantiating this policy doesn't open a websocket.
+    The connection is established in `reset()` (right before the episode), so
+    if the server isn't running you fail fast with a clearer error than a
+    hung __init__."""
 
     def __init__(
         self,
@@ -53,15 +63,13 @@ class StarVLAPolicy(Policy):
         max_steps: int = 200,
         sim_steps_per_action: int = 5,
     ):
-        # Import here to keep the import cost out of the env-init path; the
-        # websocket client only loads when the policy is actually instantiated.
-        from deployment.model_server.tools.websocket_policy_client import WebsocketClientPolicy
-
-        self.client = WebsocketClientPolicy(host, port)
+        self.host = host
+        self.port = port
         self.unnorm_key = unnorm_key
         self.action_mode = action_mode
         self.max_steps = max_steps
         self.sim_steps_per_action = sim_steps_per_action
+        self.client = None  # connected in reset()
         self.instruction: Optional[str] = None
         self.step_idx = 0
         self.action_chunk: Optional[np.ndarray] = None
@@ -71,6 +79,12 @@ class StarVLAPolicy(Policy):
         self.instruction = instruction
         self.step_idx = 0
         self.action_chunk = None
+        if self.client is None:
+            from deployment.model_server.tools.websocket_policy_client import WebsocketClientPolicy
+
+            print(f"[StarVLAPolicy] connecting to ws://{self.host}:{self.port} ...", flush=True)
+            self.client = WebsocketClientPolicy(self.host, self.port)
+            print(f"[StarVLAPolicy] server metadata: {self.client.get_server_metadata()}", flush=True)
 
     def run_episode(self, env) -> dict:
         from termcolor import cprint
@@ -111,10 +125,13 @@ class StarVLAPolicy(Policy):
         left_rgb = env.garment_camera.get_rgb_graph(save_or_not=False)
         right_rgb = env.judge_camera.get_rgb_graph(save_or_not=False)
 
-        # Drop alpha if present.
-        head_rgb = head_rgb[..., :3] if head_rgb.shape[-1] == 4 else head_rgb
-        left_rgb = left_rgb[..., :3] if left_rgb.shape[-1] == 4 else left_rgb
-        right_rgb = right_rgb[..., :3] if right_rgb.shape[-1] == 4 else right_rgb
+        # Drop alpha if present, then resize to 224x224 (Qwen2.5-VL input).
+        def _prep(img):
+            if img.shape[-1] == 4:
+                img = img[..., :3]
+            return cv.resize(img, _VLA_IMAGE_SIZE, interpolation=cv.INTER_AREA)
+
+        head_rgb, left_rgb, right_rgb = _prep(head_rgb), _prep(left_rgb), _prep(right_rgb)
 
         # 14-D state vector: 6 left arm + 6 right arm + 2 gripper-state placeholders.
         # We read the full joint vector and extract the arm portion via
